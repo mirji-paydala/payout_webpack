@@ -1,0 +1,240 @@
+<html>
+  <!--
+    An IFrame test page for the Payouts Network Drop-In UI.
+
+    This html page needs to be served from a web server (ie, localhost). It will not work if opened directly from the filesystem.
+
+    The buttons at the top will load the Prodint (sandbox) or Prod (production) environments. The Production environment will not work from this test application if running locally, due to domain name whitelisting. The Prodint environment will work locally.
+
+    Once the environment is selected, you can use the form to dispatch an initialize action to the Drop-In UI. The authenticationResponse and program fields are required. The authenticationResponse field should be the json response returned by the /card-ui/authentication API endpoint. The program field should be a string containing the program nickname that was created for your organization.
+
+    The initialize action will cause the Drop-In UI to load and display the card creation form. Once the form is filled out and submitted, the Drop-In UI will dispatch a SUCCESS_CARD_CREATE event to the parent window. The event will contain the cardId of the newly created card, which this test application will display in an alert.
+
+    Any events dispatched by the Drop-In UI will be logged to the devtools console.
+
+  -->
+  <head>
+    <title>Payouts Network Drop-In UI IFrame Test</title>
+    <style type="text/css">
+      *,
+      *:before,
+      *:after {
+        box-sizing: border-box;
+      }
+
+      form {
+        max-width: 500px;
+        padding: 20px 12px 10px 20px;
+        font: 13px Arial, Helvetica, sans-serif;
+      }
+      .form-heading {
+        font-weight: bold;
+        font-style: italic;
+        border-bottom: 2px solid #ddd;
+        margin-bottom: 20px;
+        font-size: 15px;
+        padding-bottom: 3px;
+      }
+      form label {
+        display: block;
+        margin: 0px 0px 15px 0px;
+      }
+      form label > span {
+        width: 100px;
+        font-weight: bold;
+        float: left;
+        padding-top: 8px;
+        padding-right: 5px;
+      }
+      form span.required {
+        color: red;
+      }
+      form .tel-number-field {
+        width: 40px;
+        text-align: center;
+      }
+      form input.input-field,
+      form .select-field {
+        width: 48%;
+      }
+      form input.input-field,
+      form .tel-number-field,
+      form .textarea-field,
+      form .select-field {
+        box-sizing: border-box;
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        border: 1px solid #c2c2c2;
+        box-shadow: 1px 1px 4px #ebebeb;
+        -moz-box-shadow: 1px 1px 4px #ebebeb;
+        -webkit-box-shadow: 1px 1px 4px #ebebeb;
+        border-radius: 3px;
+        -webkit-border-radius: 3px;
+        -moz-border-radius: 3px;
+        padding: 7px;
+        outline: none;
+      }
+      form .input-field:focus,
+      form .tel-number-field:focus,
+      form .textarea-field:focus,
+      form .select-field:focus {
+        border: 1px solid #0c0;
+      }
+      form .textarea-field {
+        height: 100px;
+        width: 55%;
+      }
+      form input[type="submit"],
+      form input[type="button"] {
+        border: none;
+        padding: 8px 15px 8px 15px;
+        background: #ff8500;
+        color: #fff;
+        box-shadow: 1px 1px 4px #dadada;
+        -moz-box-shadow: 1px 1px 4px #dadada;
+        -webkit-box-shadow: 1px 1px 4px #dadada;
+        border-radius: 3px;
+        -webkit-border-radius: 3px;
+        -moz-border-radius: 3px;
+      }
+      form input[type="submit"]:hover,
+      form input[type="button"]:hover {
+        background: #ea7b00;
+        color: #fff;
+      }
+
+      .active-environment {
+        background-color: lightseagreen;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div>
+      <button id="prodint" onclick="loadEnvironment('prodint')">Prodint</button>
+      <button id="prod" onclick="loadEnvironment('prod')">Prod</button>
+    </div>
+    <br />
+    <!--Load the drop in UI in an iframe-->
+    <iframe
+      id="frame"
+      src="https://card-ui.prodint.payoutsnetwork.com"
+      title="Card UI"
+      height="600"
+      width="800"
+    ></iframe>
+
+    <br />
+    <div>
+      <form>
+        <fieldset>
+          <legend>Initialize Action</legend>
+          <label for="authenticationResponse">Authentication Response</label>
+          <textarea
+            class="textarea-field"
+            id="authenticationResponse"
+          ></textarea>
+          <label for="program">Program</label>
+          <input class="input-field" id="program" />
+          <br />
+          <button onclick="dispatchInitializeAction()" type="button">
+            Dispatch Initialize Action
+          </button>
+        </fieldset>
+      </form>
+    </div>
+
+    <script>
+      // Listen for messages from the iframe and log them to the console
+      window.addEventListener("message", (event) => {
+        console.log("Received Event:", event);
+        if (
+          event?.data.type === "SUCCESS_CARD_CREATE" &&
+          event.data?.payload?.cardId
+        ) {
+          console.log("Received Card ID:", event.data?.payload.cardId);
+          alert("Received Card ID: " + event.data?.payload.cardId);
+        }
+      });
+
+      let loadedUrl;
+
+      loadEnvironment("prodint");
+
+      loadLastRequests();
+
+      /** Change the iframe's url */
+      function loadEnvironment(env) {
+        let url;
+        switch (env) {
+          case "prodint":
+            url = "https://card-ui.prodint.payoutsnetwork.com";
+            break;
+          case "prod":
+            url = "https://card-ui.payoutsnetwork.com";
+            break;
+          default:
+            url = "";
+            break;
+        }
+
+        const iframe = document.getElementById("frame");
+        iframe.src = url;
+        loadedUrl = url;
+
+        document.getElementById("prodint").className = "";
+        document.getElementById("prod").className = "";
+
+        document.getElementById(env).className = "active-environment";
+      }
+
+      /** Create the Initialize action and send it to the iframe */
+      function dispatchInitializeAction() {
+        const authEl = document.getElementById("authenticationResponse");
+        const programEl = document.getElementById("program");
+
+        localStorage.setItem("authenticationResponse", authEl.value);
+        localStorage.setItem("program", programEl.value);
+
+        const authenticationResponse = JSON.parse(authEl.value);
+        const program = programEl.value;
+
+        // Create the Initialize Action
+        const initializeAction = {
+          type: "INITIALIZE",
+          payload: {
+            AuthenticationResult: authenticationResponse.AuthenticationResult,
+            program: program,
+          },
+        };
+
+        sendMessage(initializeAction);
+      }
+
+      /** Sends a message to the iframe via the postMessage api */
+      function sendMessage(message) {
+        /** @type HTMLIFrameElement */
+        const iframe = document.getElementById("frame");
+
+        console.log("Dispatching", message);
+
+        // Send the message to the iframe
+        iframe.contentWindow.postMessage(message, loadedUrl);
+      }
+
+      /** Loads values from localstorage to make it easier to test */
+      function loadLastRequests() {
+        loadStringByInputName("authenticationResponse");
+        loadStringByInputName("program");
+      }
+
+      function loadStringByInputName(name) {
+        const value = localStorage.getItem(name);
+        if (value != "") {
+          const element = document.getElementById(name);
+          element.value = value;
+        }
+      }
+    </script>
+  </body>
+</html>
